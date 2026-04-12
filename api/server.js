@@ -253,6 +253,60 @@ if (summary === undefined && explanation === undefined && priority === undefined
   });
 });
 
+// Update one selected entry by completing a PUT request to /api/:id
+app.put('/api/:id', upload.single('visual'), (req, res) => {
+  const { id } = req.params;
+  const { summary, explanation, priority } = req.body;
+  const parsedPriority = Number(priority);
+
+  db.get('SELECT * FROM inspirations WHERE id = ?', [id], (err, existing) => {
+    if (err) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (!existing) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Inspiration not found.' });
+    }
+
+    const updatedSummary = summary ?? existing.summary;
+    const updatedExplanation = explanation ?? existing.explanation;
+    const updatedPriority = priority !== undefined ? parsedPriority : existing.priority;
+
+    if (!updatedSummary || !updatedExplanation || !Number.isInteger(updatedPriority) || updatedPriority < 1 || updatedPriority > 10) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        error: 'summary and explanation are required, and priority must be an integer between 1 and 10.'
+      });
+    }
+
+    const updatedVisual = req.file ? `uploads/${req.file.filename}` : existing.visual;
+
+    db.run(
+      'UPDATE inspirations SET summary = ?, explanation = ?, visual = ?, priority = ? WHERE id = ?',
+      [updatedSummary, updatedExplanation, updatedVisual, updatedPriority, id],
+      function (updateErr) {
+        if (updateErr) {
+          if (req.file) fs.unlinkSync(req.file.path);
+          return res.status(500).json({ error: updateErr.message });
+        }
+
+        if (req.file && existing.visual) {
+          deleteFileIfExists(existing.visual);
+        }
+
+        db.get('SELECT * FROM inspirations WHERE id = ?', [id], (selectErr, row) => {
+          if (selectErr) {
+            return res.status(500).json({ error: selectErr.message });
+          }
+          res.json(row);
+        });
+      }
+    );
+  });
+});
+
 // Generic error handling
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError || err) {
