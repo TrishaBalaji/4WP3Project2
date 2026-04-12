@@ -307,6 +307,32 @@ app.put('/api/:id', upload.single('visual'), (req, res) => {
   });
 });
 
+// Delete all entries
+app.delete('/api', (req, res) => {
+  db.all('SELECT * FROM inspirations', [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+
+    rows.forEach(item => {
+      if (item.visual) {
+        deleteFileIfExists(item.visual);
+      }
+    });
+
+    db.run('DELETE FROM inspirations', [], function (deleteErr) {
+      if (deleteErr) {
+        return res.status(500).json({ error: deleteErr.message });
+      }
+
+      res.json({
+        message: 'All inspirations deleted successfully.',
+        changes: this.changes
+      });
+    });
+  });
+});
+
 // Generic error handling
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError || err) {
