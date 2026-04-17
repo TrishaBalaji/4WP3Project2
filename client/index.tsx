@@ -28,6 +28,29 @@ export default function Index() {
   const [priority, setPriority] = useState('');
   const [message, setMessage] = useState('App loaded.');
 
+  async function fetchData() {
+    try {
+      setMessage('Fetching data...');
+      const response = await fetch(API_URL);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data: Inspiration[] = await response.json();
+      setInspirations(data);
+      setMessage(`Loaded ${data.length} item(s).`);
+      console.log('GET success:', data);
+    } catch (error: any) {
+      console.log('GET error:', error);
+      setMessage(`Fetch failed: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+ 
 return (
     <View style={styles.container}>
       <Text style={styles.title}>Art Inspirations</Text>
