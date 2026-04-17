@@ -44,6 +44,7 @@ export default function Index() {
     } catch (error: any) {
       console.log('GET error:', error);
       setMessage(`Fetch failed: ${error?.message || 'Unknown error'}`);
+      Alert.alert('Error', `Could not fetch data from API.\n\n${error?.message || 'Unknown error'}`); 
     }
   }
 
@@ -51,6 +52,136 @@ export default function Index() {
     fetchData();
   }, []);
 
+   async function createItem() {
+    try {
+      if (!summary || !explanation || !priority) {
+        Alert.alert('Missing fields', 'Please enter summary, explanation, and priority.');
+        return;
+      }
+
+      const parsedPriority = parseInt(priority, 10);
+      if (isNaN(parsedPriority) || parsedPriority < 1 || parsedPriority > 10) {
+        Alert.alert('Invalid priority', 'Priority must be a number from 1 to 10.');
+        return;
+      }
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary,
+          explanation,
+          priority: parsedPriority
+        })
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}`);
+      }
+
+      setMessage('Created successfully.');
+      clearForm();
+      fetchData();
+    } catch (error: any) {
+      console.log('POST error:', error);
+      setMessage(`Create failed: ${error?.message || 'Unknown error'}`);
+      Alert.alert('Error', `Could not create item.\n\n${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  async function updateItem() {
+    try {
+      if (!selectedId) {
+        Alert.alert('Missing ID', 'Enter an ID to update.');
+        return;
+      }
+
+      const body: any = {};
+      if (summary) body.summary = summary;
+      if (explanation) body.explanation = explanation;
+      if (priority) {
+        const parsedPriority = parseInt(priority, 10);
+        if (isNaN(parsedPriority) || parsedPriority < 1 || parsedPriority > 10) {
+          Alert.alert('Invalid priority', 'Priority must be a number from 1 to 10.');
+          return;
+        }
+        body.priority = parsedPriority;
+      }
+
+      if (Object.keys(body).length === 0) {
+        Alert.alert('No fields', 'Enter at least one field to update.');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/${selectedId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}`);
+      }
+
+      setMessage(`Updated item ${selectedId}.`);
+      clearForm();
+      fetchData();
+    } catch (error: any) {
+      console.log('PUT error:', error);
+      setMessage(`Update failed: ${error?.message || 'Unknown error'}`);
+      Alert.alert('Error', `Could not update item.\n\n${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  async function deleteItem() {
+    try {
+      if (!selectedId) {
+        Alert.alert('Missing ID', 'Enter an ID to delete.');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/${selectedId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}`);
+      }
+
+      setMessage(`Deleted item ${selectedId}.`);
+      clearForm();
+      fetchData();
+    } catch (error: any) {
+      console.log('DELETE error:', error);
+      setMessage(`Delete failed: ${error?.message || 'Unknown error'}`);
+      Alert.alert('Error', `Could not delete item.\n\n${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  async function deleteAllItems() {
+    try {
+      const response = await fetch(API_URL, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}`);
+      }
+
+      setMessage('Deleted all items.');
+      clearForm();
+      fetchData();
+    } catch (error: any) {
+      console.log('DELETE ALL error:', error);
+      setMessage(`Delete all failed: ${error?.message || 'Unknown error'}`);
+      Alert.alert('Error', `Could not delete all items.\n\n${error?.message || 'Unknown error'}`);
+    }
+  }
+  
    function clearForm() {
     setSelectedId('');
     setSummary('');
@@ -131,21 +262,21 @@ return (
         </View>
 
         <View style={styles.buttonRow}>
-          <Pressable style={[styles.button, styles.green]}>
+          <Pressable style={[styles.button, styles.green]} onPress={createItem}> 
             <Text style={styles.buttonText}>Create</Text>
           </Pressable>
 
-          <Pressable style={[styles.button, styles.blue]}>
+          <Pressable style={[styles.button, styles.blue]} onPress={updateItem}>
             <Text style={styles.buttonText}>Update</Text>
           </Pressable>
         </View>
 
         <View style={styles.buttonRow}>
-          <Pressable style={[styles.button, styles.red]}>
+          <Pressable style={[styles.button, styles.red]} onPress={deleteItem}>
             <Text style={styles.buttonText}>Delete</Text>
           </Pressable>
 
-          <Pressable style={[styles.button, styles.darkRed]}>
+          <Pressable style={[styles.button, styles.darkRed]} onPress={deleteAllItems}>
             <Text style={styles.buttonText}>Delete All</Text>
           </Pressable>
         </View>
@@ -189,11 +320,14 @@ const styles = StyleSheet.create({
     padding: 12,
     justifyContent: 'center'
   },
-  placeholderText: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#555'
-  }
+  field: {
+    marginBottom: 10
+  },
+   label: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4
+  },
   card: {
     backgroundColor: 'white',
     borderWidth: 1,
