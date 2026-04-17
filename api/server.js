@@ -124,60 +124,8 @@ app.post('/api', (req, res) => {
   );
 });
 
-// Update all entries 
-app.put('/api', (req, res) => {
-  const { summary, explanation, priority } = req.body;
-  const parsedPriority = Number(priority);
-if (summary === undefined && explanation === undefined && priority === undefined) {
-    return res.status(400).json({
-      error: 'Provide at least one field to update: summary, explanation, or priority.'
-    });
-  }
-
-  if (priority !== undefined && (!Number.isInteger(parsedPriority) || parsedPriority < 1 || parsedPriority > 10)) {
-    return res.status(400).json({
-      error: 'priority must be an integer between 1 and 10.'
-    });
-  }
-
-  const fields = [];
-  const values = [];
-
-  if (summary !== undefined) {
-    fields.push('summary = ?');
-    values.push(summary);
-  }
-
-  if (explanation !== undefined) {
-    fields.push('explanation = ?');
-    values.push(explanation);
-  }
-
-  if (priority !== undefined) {
-    fields.push('priority = ?');
-    values.push(parsedPriority);
-  }
-
-  const sql = `UPDATE inspirations SET ${fields.join(', ')}`;
-
-  db.run(sql, values, function (err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-
-    db.all('SELECT * FROM inspirations ORDER BY priority DESC, id ASC', [], (selectErr, rows) => {
-      if (selectErr) {
-        return res.status(500).json({ error: selectErr.message });
-      }
-
-      res.json({
-        message: 'All inspirations updated successfully.',
-        changes: this.changes,
-        data: rows
-      });
-    });
-  });
-});
+//Deleted 'Update All' route because it doesn't make sense to implement with the front end 
+//Only one form to update one entry at a time 
 
 // Update one selected entry by completing a PUT request to /api/:id
 app.put('/api/:id', (req, res) => {
