@@ -1,6 +1,5 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
-const multer = require('multer'); //getting a multer error when pressing the create button 
 const path = require('path');
 const fs = require('fs');
 
@@ -8,14 +7,13 @@ const app = express();
 const PORT = 3000;
 
 // Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// const uploadsDir = path.join(__dirname, 'uploads');
+// if (!fs.existsSync(uploadsDir)) {
+//   fs.mkdirSync(uploadsDir, { recursive: true });
+// }
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(uploadsDir));
 
 // SQLite setup
 const db = new sqlite3.Database(path.join(__dirname, 'database.db'), (err) => {
@@ -52,34 +50,6 @@ db.get("SELECT COUNT(*) AS count FROM inspirations", (err, row) => {
   }
 });
 
-// Multer config for PNG uploads only
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'image/png') {
-    cb(null, true);
-  } else {
-    cb(new Error('Only PNG files are allowed.'), false);
-  }
-};
-
-const upload = multer({ storage, fileFilter });
-
-function deleteFileIfExists(filePath) {
-  if (!filePath) return;
-  const absolutePath = path.join(__dirname, filePath);
-  if (fs.existsSync(absolutePath)) {
-    fs.unlinkSync(absolutePath);
-  }
-}
 
 // Home page: simple HTML table of all inspirations
 app.get('/', (req, res) => {
@@ -165,26 +135,21 @@ app.get('/api/:id', (req, res) => {
   });
 });
 
-// CREATE inspiration with optional PNG upload
-app.post('/api', upload.single('visual'), (req, res) => {
+app.post('/api', (req, res) => {
   const { summary, explanation, priority } = req.body;
   const parsedPriority = Number(priority);
 
   if (!summary || !explanation || !Number.isInteger(parsedPriority) || parsedPriority < 1 || parsedPriority > 10) {
-    if (req.file) fs.unlinkSync(req.file.path);
     return res.status(400).json({
       error: 'summary and explanation are required, and priority must be an integer between 1 and 10.'
     });
   }
 
-  const visualPath = req.file ? `uploads/${req.file.filename}` : null;
-
   db.run(
     'INSERT INTO inspirations (summary, explanation, visual, priority) VALUES (?, ?, ?, ?)',
-    [summary, explanation, visualPath, parsedPriority],
+    [summary, explanation, null, parsedPriority],
     function (err) {
       if (err) {
-        if (req.file) fs.unlinkSync(req.file.path);
         return res.status(500).json({ error: err.message });
       }
 
@@ -254,7 +219,7 @@ if (summary === undefined && explanation === undefined && priority === undefined
 });
 
 // Update one selected entry by completing a PUT request to /api/:id
-app.put('/api/:id', upload.single('visual'), (req, res) => {
+app.put('/api/:id', (req, res) => {
   const { id } = req.params;
   const { summary, explanation, priority } = req.body;
   const parsedPriority = Number(priority);
@@ -281,11 +246,9 @@ app.put('/api/:id', upload.single('visual'), (req, res) => {
       });
     }
 
-    const updatedVisual = req.file ? `uploads/${req.file.filename}` : existing.visual;
-
     db.run(
-      'UPDATE inspirations SET summary = ?, explanation = ?, visual = ?, priority = ? WHERE id = ?',
-      [updatedSummary, updatedExplanation, updatedVisual, updatedPriority, id],
+      'UPDATE inspirations SET summary = ?, explanation = ?, priority = ? WHERE id = ?',
+      [updatedSummary, updatedExplanation, updatedPriority, id],
       function (updateErr) {
         if (updateErr) {
           if (req.file) fs.unlinkSync(req.file.path);
@@ -358,14 +321,6 @@ app.delete('/api/:id', (req, res) => {
       res.json({ message: 'Inspiration deleted successfully.' });
     });
   });
-});
-
-// Generic error handling
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError || err) {
-    return res.status(400).json({ error: err.message || 'Upload error.' });
-  }
-  next();
 });
 
 app.listen(PORT, () => {
